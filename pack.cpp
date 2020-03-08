@@ -2,6 +2,7 @@
 #include <iostream>
 #include <vector>
 #include <exception>
+#include <cstring>
 
 extern "C" {
 #include <lua.h>
