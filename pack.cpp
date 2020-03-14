@@ -23,6 +23,12 @@ void write_data(std::ofstream& of, T* data, size_t size) {
     of.write((char*) data, sizeof(T) * size);
 }
 
+inline
+template<typename T>
+void write_buf_data(char* buf, T data) {
+    memcpy(buf, (char*) &data, sizeof(T));
+}
+
 struct bt_node {
     uint32_t start;
     uint32_t end;
@@ -89,24 +95,29 @@ struct tkey {
         if (type == NUM) {
             size += sizeof(double);
         } else {
-            size += sizeof((strlen(str) + 1) * sizeof(char));
+            size += (strlen(str) + 1) * sizeof(char);
         }
         return size;
     }
 
     void write_data_to_buf(char* buf) {
         uint16_t* size_info = (uint16_t*) buf;
-        void* data = (void*) (buf + sizeof(uint16_t));
+        char* data = (char*) (buf + sizeof(uint16_t));
 
         if (type == NUM) {
             *size_info = (uint16_t) sizeof(double);
-            *((double *)data) = num;
+            /* *((double *)data) = num; */
+            write_buf_data(data, num);
+            double tmp = *((lua_Number*) data);
+            printf("num size info = %d, 0x%02x, tmp data = %f, 0x%08x, num x%08x\n", *size_info, *size_info, tmp, tmp, num);
         } else {
             size_t size = (strlen(str) + 1) * sizeof(char);
             assert(size < 1 << 15);
 
-            size |= 1 << 15;
+            size |= (1 << 15);
+            printf("1 << 15 = %d, size = %zu\n", 1 << 15, size);
             *size_info = (uint16_t) size;
+            printf("size size info = %d, 0x%x\n", *size_info, *size_info);
 
             std::memcpy(data, str, strlen(str) + 1);
         }
@@ -199,6 +210,8 @@ void pack_keys(std::vector<tkey>& key_vec, std::ofstream& of) {
     size_t buf_size = key_addr_size + key_data_size;
 
     char* key_buf = (char*) malloc(buf_size);
+    memset(key_buf, 0, buf_size);
+
     char* key_data = key_buf + sizeof(uint32_t) * key_size;
     uint32_t* key_addr_arr = (uint32_t*) key_buf;
 
@@ -210,7 +223,7 @@ void pack_keys(std::vector<tkey>& key_vec, std::ofstream& of) {
     for (uint32_t i = 0; i < key_size; i++) {
         auto& key = key_vec[i];
         if (array_size == i && key.type == NUM and key.num == i + 1) {
-            std::cout << "write array key " << key.num << ", key offset = " << key_offset << ", pack size: " << key.get_pack_size() << std::endl;
+            printf("write array key %f, key offset = %d, pack size: %zu key_vec[i]: %zu ------------\n", key.num, key_offset, key.get_pack_size(), key_vec[i].get_pack_size());
 
             key_addr_arr[i] = key_offset;
             key.write_data_to_buf(key_data + key_offset);
@@ -237,16 +250,21 @@ void pack_keys(std::vector<tkey>& key_vec, std::ofstream& of) {
 
     /* while(head) { */
     for (uint32_t i = array_size; i < key_size; i++) {
-        size_t mid = avl_choose_root(head->start, head->end);
-        key_addr_arr[i] = key_offset;
-        key_vec[i].write_data_to_buf(key_data + key_offset);
-        key_offset += key_vec[i].get_pack_size();
+        uint32_t mid = avl_choose_root(head->start, head->end);
 
-        printf("start: %d, end: %d, get mid: %d, key_offset = %d, pack size: %d, key = ", head->start, head->end, mid, key_offset - key_vec[i].get_pack_size(), key_vec[i].get_pack_size());
-        if (key_vec[mid].type == NUM) {
-            std::cout << key_vec[mid].num << std::endl;
+        tkey& key = key_vec[mid];
+        size_t pack_size = key.get_pack_size();
+
+        key.write_data_to_buf(key_data + key_offset);
+        key_addr_arr[i] = key_offset;
+        key_offset += pack_size;
+
+        printf("write start: %d, end: %d, get mid: %u, key_offset = %lu, pack size: %lu, key = ", head->start, head->end, mid, key_offset - pack_size, pack_size);
+
+        if (key.type == NUM) {
+            std::cout << key.num << std::endl;
         } else {
-            std::cout << key_vec[mid].str << std::endl;
+            std::cout << key.str << std::endl;
         }
 
         if (mid > head->start) {
@@ -345,21 +363,22 @@ void pack(lua_State* L, int t, std::ofstream& of) {
     for (auto& key : key_vec) {
         if (key.type == NUM) {
             lua_pushnumber(L, key.num);
-            std::cout << "key num " << key.num << std::endl;
+            std::cout << "iter key num " << key.num << std::endl;
         } else {
             lua_pushstring(L, key.str);
-            std::cout << "key str " << key.str << std::endl;
+            std::cout << "iter key str " << key.str << std::endl;
         }
         lua_rawget(L, -2);
 
         if (lua_istable(L, -1)) {
+            std::cout << "---------- iter value table start ----------" << std::endl;
             pack(L, -1, of);
-            std::cout << "---------- value table end ----------" << std::endl;
+            std::cout << "---------- iter value table end ----------" << std::endl;
         }
         else if(lua_isnumber(L, -1)) {
-            std::cout << "value num: " << lua_tonumber(L, -1) << std::endl;
+            std::cout << "iter value num: " << lua_tonumber(L, -1) << std::endl;
         } else if(lua_isstring(L, -1)) {
-            std::cout << "value str: " << lua_tostring(L, -1) << std::endl;
+            std::cout << "iter value str: " << lua_tostring(L, -1) << std::endl;
         }
 
         lua_pop(L, 1);
