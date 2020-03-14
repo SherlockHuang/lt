@@ -170,14 +170,16 @@ uint32_t avl_choose_root(uint32_t start, uint32_t end) {
     return start + right_node_num;
 }
 
-bt_node* get_or_create_free_node(bt_node*& free_head) {
-    if (free_head) {
-        bt_node* head = free_head;
-        free_head = free_head->next;
+bt_node* get_or_create_free_node(bt_node** free_head) {
+    if (*free_head) {
+        bt_node* head = *free_head;
+        *free_head = head->next;
         return head;
     }
 
-    return new bt_node();
+    bt_node* node = new bt_node();
+
+    return node;
 }
 
 void pack_keys(std::vector<tkey>& key_vec, std::ofstream& of) {
@@ -244,7 +246,7 @@ void pack_keys(std::vector<tkey>& key_vec, std::ofstream& of) {
         }
 
         if (mid > head->start) {
-            bt_node* left = get_or_create_free_node(unused);
+            bt_node* left = get_or_create_free_node(&unused);
             left->start = head->start;
             left->end = mid - 1;
             left->next = nullptr;
@@ -254,7 +256,7 @@ void pack_keys(std::vector<tkey>& key_vec, std::ofstream& of) {
         }
 
         if (mid < head->end) {
-            bt_node* right = get_or_create_free_node(unused);
+            bt_node* right = get_or_create_free_node(&unused);
             right->start = mid + 1;
             right->end = head->end;
             right->next = nullptr;
@@ -270,9 +272,18 @@ void pack_keys(std::vector<tkey>& key_vec, std::ofstream& of) {
             unused = head;
         } else {
             unused = head;
+            head->next = nullptr;
         }
 
         head = next_head;
+    }
+
+    int count = 0;
+    while(unused) {
+        bt_node* node = unused;
+        unused = unused->next;
+
+        free(node);
     }
 
     /* uint32_t key_offset = 0; */
