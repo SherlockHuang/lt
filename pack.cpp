@@ -189,17 +189,20 @@ void pack_keys(std::vector<tkey>& key_vec, std::ofstream& of) {
     write_data(of, key_size);
     std::cout << "write size " << key_size << std::endl;
 
-    uint32_t total_key_size = 0;
+    uint32_t key_data_size = 0;
     for (uint32_t i = 0; i < key_size; i++) {
-        total_key_size += key_vec[i].get_pack_size();
+        key_data_size += key_vec[i].get_pack_size();
     }
-    std::cout << "total size " << total_key_size << std::endl;
+    std::cout << "total size " << key_data_size << std::endl;
 
-    char* key_buf = (char*) malloc(sizeof(uint32_t) * key_size + total_key_size);
-    uint32_t* key_addr_arr = (uint32_t*) key_buf;
+    size_t key_addr_size = sizeof(uint32_t) * key_size;
+    size_t buf_size = key_addr_size + key_data_size;
+
+    char* key_buf = (char*) malloc(buf_size);
     char* key_data = key_buf + sizeof(uint32_t) * key_size;
+    uint32_t* key_addr_arr = (uint32_t*) key_buf;
 
-    std::cout << "key_buf size " << sizeof(uint32_t) * key_size + total_key_size << std::endl;
+    std::cout << "key_buf size " << buf_size << std::endl;
     printf("key_buf: %p, key_addr_arr: %p, key_data: %p\n", key_buf, key_addr_arr, key_data);
 
     uint32_t key_offset = 0;
@@ -207,7 +210,7 @@ void pack_keys(std::vector<tkey>& key_vec, std::ofstream& of) {
     for (uint32_t i = 0; i < key_size; i++) {
         auto& key = key_vec[i];
         if (array_size == i && key.type == NUM and key.num == i + 1) {
-            std::cout << "write array key " << key.num << ", key offset = " << key_offset << std::endl;
+            std::cout << "write array key " << key.num << ", key offset = " << key_offset << ", pack size: " << key.get_pack_size() << std::endl;
 
             key_addr_arr[i] = key_offset;
             key.write_data_to_buf(key_data + key_offset);
@@ -232,13 +235,14 @@ void pack_keys(std::vector<tkey>& key_vec, std::ofstream& of) {
         tail = head;
     }
 
-    while(head) {
+    /* while(head) { */
+    for (uint32_t i = array_size; i < key_size; i++) {
         size_t mid = avl_choose_root(head->start, head->end);
-        key_addr_arr[mid] = key_offset;
-        key_vec[mid].write_data_to_buf(key_data + key_offset);
-        key_offset += key_vec[mid].get_pack_size();
+        key_addr_arr[i] = key_offset;
+        key_vec[i].write_data_to_buf(key_data + key_offset);
+        key_offset += key_vec[i].get_pack_size();
 
-        printf("start: %d, end: %d, get mid: %d, key = ", head->start, head->end, mid);
+        printf("start: %d, end: %d, get mid: %d, key_offset = %d, pack size: %d, key = ", head->start, head->end, mid, key_offset - key_vec[i].get_pack_size(), key_vec[i].get_pack_size());
         if (key_vec[mid].type == NUM) {
             std::cout << key_vec[mid].num << std::endl;
         } else {
@@ -285,6 +289,10 @@ void pack_keys(std::vector<tkey>& key_vec, std::ofstream& of) {
 
         free(node);
     }
+
+    write_data(of, array_size);
+    write_data(of, key_buf, buf_size);
+    free(key_buf);
 
     /* uint32_t key_offset = 0; */
     /* for (tkey& key : key_vec) { */
