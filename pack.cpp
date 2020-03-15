@@ -7,6 +7,7 @@
 #include <string>
 #include <memory>
 #include <fstream>
+#include <cassert>
 
 extern "C" {
 #include <lua.h>
@@ -16,14 +17,24 @@ extern "C" {
 template<typename T>
 void write_data(std::ofstream& of, T& data) {
     of.write((char*) &data, sizeof(T));
+
+    char* output_data = (char*) &data;
+    for (int i = 0; i < sizeof(T); i++) {
+        unsigned char c = output_data[i];
+        printf("write: 0x%02x\n", c);
+    }
 }
 
 template<typename T>
 void write_data(std::ofstream& of, T* data, size_t size) {
     of.write((char*) data, sizeof(T) * size);
+
+    for (int i = 0; i < sizeof(T) * size; i++) {
+        unsigned char c = data[i];
+        printf("write: 0x%02x\n", c);
+    }
 }
 
-inline
 template<typename T>
 void write_buf_data(char* buf, T data) {
     memcpy(buf, (char*) &data, sizeof(T));
@@ -115,12 +126,22 @@ struct tkey {
             assert(size < 1 << 15);
 
             size |= (1 << 15);
-            printf("1 << 15 = %d, size = %zu\n", 1 << 15, size);
+            printf("1 << 15 = %d, size = %d\n", 1 << 15, size);
             *size_info = (uint16_t) size;
             printf("size size info = %d, 0x%x\n", *size_info, *size_info);
 
             std::memcpy(data, str, strlen(str) + 1);
+
+            int str_len = strlen(str) + 1;
+            printf("haha, str_len = %d\n", str_len);
+
         }
+
+        for (int i = 0; i < get_pack_size(); i++) {
+            unsigned char c = buf[i];
+            printf("%d, %02x\n", c, c);
+        }
+
     }
 };
 
@@ -198,13 +219,12 @@ void pack_keys(std::vector<tkey>& key_vec, std::ofstream& of) {
     uint32_t key_size = key_vec.size();
 
     write_data(of, key_size);
-    std::cout << "write size " << key_size << std::endl;
+    std::cout << "write key size " << key_size << std::endl;
 
     uint32_t key_data_size = 0;
     for (uint32_t i = 0; i < key_size; i++) {
         key_data_size += key_vec[i].get_pack_size();
     }
-    std::cout << "total size " << key_data_size << std::endl;
 
     size_t key_addr_size = sizeof(uint32_t) * key_size;
     size_t buf_size = key_addr_size + key_data_size;
@@ -214,9 +234,6 @@ void pack_keys(std::vector<tkey>& key_vec, std::ofstream& of) {
 
     char* key_data = key_buf + sizeof(uint32_t) * key_size;
     uint32_t* key_addr_arr = (uint32_t*) key_buf;
-
-    std::cout << "key_buf size " << buf_size << std::endl;
-    printf("key_buf: %p, key_addr_arr: %p, key_data: %p\n", key_buf, key_addr_arr, key_data);
 
     uint32_t key_offset = 0;
     uint32_t array_size = 0;
@@ -259,7 +276,7 @@ void pack_keys(std::vector<tkey>& key_vec, std::ofstream& of) {
         key_addr_arr[i] = key_offset;
         key_offset += pack_size;
 
-        printf("write start: %d, end: %d, get mid: %u, key_offset = %lu, pack size: %lu, key = ", head->start, head->end, mid, key_offset - pack_size, pack_size);
+        printf("write hash start: %d, end: %d, get mid: %u, key_offset = %lu, pack size: %lu, key = ", head->start, head->end, mid, key_offset - pack_size, pack_size);
 
         if (key.type == NUM) {
             std::cout << key.num << std::endl;
@@ -347,14 +364,6 @@ void pack(lua_State* L, int t, std::ofstream& of) {
     }
 
     std::sort(key_vec.begin(), key_vec.end(), sort_tkey);
-
-    for (auto& key : key_vec) {
-        if (key.type == NUM) {
-            std::cout << "key num " << key.num << std::endl;
-        } else {
-            std::cout << "key str " << key.str << std::endl;
-        }
-    }
 
     std::cout << "---------- pack key ----------" << std::endl;
     pack_keys(key_vec, of);
