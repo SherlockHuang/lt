@@ -1,3 +1,4 @@
+#include <cmath>
 #include <cstdio>
 #include <iostream>
 #include <vector>
@@ -120,13 +121,13 @@ struct tkey {
             /* *((double *)data) = num; */
             write_buf_data(data, num);
             double tmp = *((lua_Number*) data);
-            printf("num size info = %d, 0x%02x, tmp data = %f, 0x%08x, num x%08x\n", *size_info, *size_info, tmp, tmp, num);
+            printf("num size info = %d, 0x%02x, tmp data = %f, 0x%llx, num x%llx\n", *size_info, *size_info, tmp, (unsigned long long) tmp, (unsigned long long) num);
         } else {
             size_t size = (strlen(str) + 1) * sizeof(char);
             assert(size < 1 << 15);
 
             size |= (1 << 15);
-            printf("1 << 15 = %d, size = %d\n", 1 << 15, size);
+            printf("1 << 15 = %d, size = %zu\n", 1 << 15, size);
             *size_info = (uint16_t) size;
             printf("size size info = %d, 0x%x\n", *size_info, *size_info);
 
@@ -215,7 +216,7 @@ bt_node* get_or_create_free_node(bt_node** free_head) {
 }
 
 void pack_keys(std::vector<tkey>& key_vec, std::ofstream& of) {
-    assert(key_vec.size() <= 1 << 31);
+    assert(key_vec.size() <= (size_t) (1 << 31));
     uint32_t key_size = key_vec.size();
 
     write_data(of, key_size);
@@ -317,7 +318,6 @@ void pack_keys(std::vector<tkey>& key_vec, std::ofstream& of) {
         head = next_head;
     }
 
-    int count = 0;
     while(unused) {
         bt_node* node = unused;
         unused = unused->next;
@@ -354,7 +354,6 @@ void pack(lua_State* L, int t, std::ofstream& of) {
             lua_pop(L, 1);
         } else {
             char msg[64];
-            const char* fmt = "unsupport key type %s";
             snprintf(msg, 64, "unsupport key type %s", lua_typename(L, lua_type(L, -2)));
             std::cout << msg << std::endl;
             throw msg;
