@@ -13,6 +13,7 @@
 extern "C" {
 #include <lua.h>
 #include <lauxlib.h>
+#include <string.h>
 }
 
 template<typename T>
@@ -277,7 +278,7 @@ void pack_keys(std::vector<tkey>& key_vec, std::ofstream& of) {
         key_addr_arr[i] = key_offset;
         key_offset += pack_size;
 
-        printf("write hash start: %d, end: %d, get mid: %u, key_offset = %lu, pack size: %lu, key = ", head->start, head->end, mid, key_offset - pack_size, pack_size);
+        printf("write hash start: %d, end: %d, get mid: %u, key_offset = %llu, pack size: %llu, key = ", head->start, head->end, mid, key_offset - pack_size, pack_size);
 
         if (key.type == NUM) {
             std::cout << key.num << std::endl;

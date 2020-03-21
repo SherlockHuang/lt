@@ -1,4 +1,5 @@
 import os
+import sys
 
 SOURCE_EXTENSIONS_C = [ '.cc', '.c' ]
 SOURCE_EXTENSIONS_CPP = [ '.cpp', '.cxx' ]
@@ -50,12 +51,21 @@ def Settings(**kwargs):
     cur_dir = os.path.dirname(os.path.abspath(__file__))
     flags.extend([
         '-Wall',
-        '-I/usr/local/opt/llvm/include',
-        '-I/usr/local/include',
         '-I' + cur_dir,
         '-std=c++17',
     ])
 
+    if sys.platform == 'win32':
+        flags.extend([
+            '-IF:/dev/lua-5.3.5/src',
+            '-D_CRT_SECURE_NO_WARNINGS',
+            ])
+
+    else:
+        flags.extend([
+            '-I/usr/local/opt/llvm/include',
+            '-I/usr/local/include'
+            ])
 
     return {
         'flags': flags
