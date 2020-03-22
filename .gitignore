@@ -3,3 +3,6 @@ main
 *.exe
 /.vscode/
 main.exe.stackdump
+/.vs/
+*.pl
+log
