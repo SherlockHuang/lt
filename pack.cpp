@@ -1,6 +1,7 @@
 #include <cmath>
 #include <cstdio>
 #include <iostream>
+#include <ostream>
 #include <vector>
 #include <exception>
 #include <cstring>
@@ -18,8 +19,27 @@ extern "C" {
 
 unsigned int pack_table(lua_State* L, int t, std::ofstream& of);
 
+void print_hex(const char* buf, size_t size) {
+    for (int i = 0; i < size; i++) {
+        printf("%02x", buf[i] & 0xff);
+        if ((i + 1) % 16 == 0) {
+            printf("\n");
+        } else if ((i + 1) % 2 == 0) {
+            printf(" ");
+        }
+    }
+
+    printf("\n");
+}
+
 template<typename T>
 size_t write_data(std::ofstream& of, T& data) {
+#ifdef DEBUG
+    auto pos = of.tellp();
+    std::cout << "write data pos: " << pos << std::endl;
+    print_hex((const char*) &data, sizeof(T));
+#endif
+
     size_t write_size = sizeof(T);
     of.write((char*) &data, write_size);
     return write_size;
@@ -27,6 +47,12 @@ size_t write_data(std::ofstream& of, T& data) {
 
 template<typename T>
 size_t write_data(std::ofstream& of, T* data, size_t size) {
+#ifdef DEBUG
+    auto pos = of.tellp();
+    std::cout << "write data pos: " << pos << std::endl;
+    print_hex((const char*) data, sizeof(T) * size);
+#endif
+
     size_t write_size = sizeof(T) * size;
     of.write((char*) data, write_size);
     return write_size;
@@ -429,10 +455,11 @@ unsigned int pack_table(lua_State* L, int t, std::ofstream& of) {
 
     uint32_t key_size = key_vec.size();
 
-    pack_size += write_data(of, key_size);
     printf("write key size %u\n", key_size);
+    pack_size += write_data(of, key_size);
 
     uint32_t arr_size = get_arr_size(key_vec);
+    printf("write arr size %u\n", arr_size);
     pack_size += write_data(of, arr_size);
 
     uint32_t* key_addr = new uint32_t[key_size]();
@@ -454,13 +481,15 @@ unsigned int pack_table(lua_State* L, int t, std::ofstream& of) {
         pack_size += pack_value(L, t, of, key);
     }
 
+    auto end_pos = of.tellp();
+
     of.seekp(ka_pos);
     write_data(of, key_addr, key_size);
 
     of.seekp(va_pos);
     write_data(of, val_addr, key_size);
 
-    of.seekp(std::ios::end);
+    of.seekp(end_pos);
 
     return pack_size;
 }

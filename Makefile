@@ -13,7 +13,7 @@ endif
 INLDUE_DIR = -I/usr/local/include
 LIB_DIR = -L/usr/local/lib/
 LD_FLAGS = -l lua
-CFLAGS = -g -Wall -std=c++17 
+CFLAGS = -g -Wall -std=c++17
 
 SRC_FILES = pack.cpp
 SRC_O = $(foreach s, $(SRC_FILES), $(basename $(s)).o)

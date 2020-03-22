@@ -1,15 +1,42 @@
 #include <fstream>
+#include <cassert>
 
 extern "C" {
 #include <lua.h>
 #include <lauxlib.h>
 #include <string.h>
+#include <memory.h>
 }
 
 enum key_type {
     NUM,
     STR,
+    TABLE,
 };
+
+void decode_value(const char* buf);
+void decode_table(const char* buf);
+void decode_num(const char* buf);
+void decode_str(const char* buf);
+
+template<typename T>
+const void* read_value(T* dst, const void* src) {
+    size_t size = sizeof(T);
+    memcpy(dst, src, size);
+    return (char*)src + size;
+}
+
+template<typename T>
+const void* read_value(T* dst, const void* src, size_t size) {
+    size = sizeof(T) * size;
+    memcpy(dst, src, size);
+    return (char*)src + size;
+}
+
+inline
+const void* addr_offset(const void* root, size_t offset) {
+    return (char*)root + offset;
+}
 
 template<typename T>
 void stream_read(const char*& buf, T& dst) {
@@ -67,7 +94,80 @@ void decode_keys(const char* buf) {
     }
 }
 
-void decode(const char* path) {
+void decode_key(const char* buf) {
+    printf("[key] ");
+    char type = buf[0];
+
+    if (type == NUM) {
+        decode_num(buf);
+    } else if (type == STR) {
+        decode_str(buf);
+    } else {
+        printf("Unknown type %d\n", type);
+        assert(false);
+    }
+}
+
+void decode_value(const char* buf) {
+    printf("[value] ");
+    char type = buf[0];
+
+    if (type == TABLE) {
+        decode_table(buf);
+    } else if (type == NUM) {
+        decode_num(buf);
+    } else if (type == STR) {
+        decode_str(buf);
+    } else {
+        printf("Unknown type %d\n", type);
+        assert(false);
+    }
+}
+
+void decode_num(const char* buf) {
+    lua_Number num;
+    read_value(&num, buf + 1);
+
+    printf("decode %f\n", num);
+}
+
+void decode_str(const char* buf) {
+    uint16_t size;
+    // memcpy((void*) &size, (void*)(buf + 1), sizeof(uint16_t));
+    read_value(&size, buf + 1);
+
+    char* str = new char[size]();
+    read_value(str, buf, size);
+
+    printf("decode %s\n", str);
+}
+
+void decode_table(const char* buf) {
+    printf("decode table ");
+    const void* ptr = buf + 1;
+
+    uint32_t key_size, arr_size;
+    ptr = read_value(&key_size, ptr);
+    ptr = read_value(&arr_size, ptr);
+
+    printf("key_size = %u, arr_size = %u\n", key_size, arr_size);
+
+    uint32_t* key_addr = (uint32_t*) ptr;
+    uint32_t* val_addr = (uint32_t*) addr_offset(key_addr, sizeof(uint32_t) * key_size);
+
+    for (unsigned int i = 0; i < key_size; i++) {
+        uint32_t key_offset = key_addr[i];
+        uint32_t val_offset = val_addr[i];
+
+        const char* cur_key = (const char*) addr_offset(buf, key_offset);
+        const char* cur_val = (const char*) addr_offset(buf, val_offset);
+
+        decode_key(cur_key);
+        decode_value(cur_val);
+    }
+}
+
+void decode_file(const char* path) {
     std::ifstream inf(path, std::ios::binary | std::ios::ate);
     std::streamsize size = inf.tellg();
     inf.seekg(0, std::ios::beg);
@@ -77,7 +177,8 @@ void decode(const char* path) {
     inf.read(buf, size);
     inf.close();
 
-    decode_keys(buf);
+    /* decode_keys(buf); */
+    decode_value(buf);
 
     delete[](buf);
 }
@@ -89,7 +190,7 @@ int main(int argc, const char** argv)
         return -1;
     }
 
-    decode(argv[1]);
+    decode_file(argv[1]);
 
     return 0;
 }
