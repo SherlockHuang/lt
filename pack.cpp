@@ -125,34 +125,6 @@ struct tkey {
         char* str;
     };
 
-    size_t get_pack_size() {
-        size_t size = sizeof(uint16_t);
-        if (type == NUM) {
-            size += sizeof(double);
-        } else {
-            size += (strlen(str) + 1) * sizeof(char);
-        }
-        return size;
-    }
-
-    void write_data_to_buf(char* buf) {
-        uint16_t* size_info = (uint16_t*) buf;
-        char* data = (char*) (buf + sizeof(uint16_t));
-
-        if (type == NUM) {
-            *size_info = (uint16_t) sizeof(double);
-            write_buf_data(data, num);
-        } else {
-            size_t size = (strlen(str) + 1) * sizeof(char);
-            assert(size < 0x8000);
-
-            *size_info = (uint16_t) (size | 0x8000);
-            printf("size = %zu, size info = %d, 0x%x\n", size, *size_info, *size_info);
-
-            std::memcpy(data, str, strlen(str) + 1);
-        }
-    }
-
     unsigned int write_to(std::ofstream& of) {
         unsigned int pack_size = 0;
 
@@ -241,117 +213,6 @@ bt_node* get_or_create_free_node(bt_node** free_head) {
     bt_node* node = new bt_node();
 
     return node;
-}
-
-void pack_keys(std::vector<tkey>& key_vec, std::ofstream& of) {
-    assert(key_vec.size() <= (size_t) (1 << 31));
-    uint32_t key_size = key_vec.size();
-
-    write_data(of, key_size);
-    std::cout << "write key size " << key_size << std::endl;
-
-    uint32_t key_data_size = 0;
-    for (uint32_t i = 0; i < key_size; i++) {
-        key_data_size += key_vec[i].get_pack_size();
-    }
-
-    size_t key_addr_size = sizeof(uint32_t) * key_size;
-    size_t buf_size = key_addr_size + key_data_size;
-
-    char* key_buf = (char*) malloc(buf_size);
-    memset(key_buf, 0, buf_size);
-
-    char* key_data = key_buf + sizeof(uint32_t) * key_size;
-    uint32_t* key_addr_arr = (uint32_t*) key_buf;
-
-    uint32_t key_offset = 0;
-    uint32_t array_size = 0;
-    for (uint32_t i = 0; i < key_size; i++) {
-        auto& key = key_vec[i];
-        if (array_size == i && key.type == NUM and key.num == i + 1) {
-
-            key_addr_arr[i] = key_offset;
-            key.write_data_to_buf(key_data + key_offset);
-
-            key_offset += key_vec[i].get_pack_size();
-            array_size++;
-        } else {
-            break;
-        }
-    }
-
-    bt_node* head = nullptr;
-    bt_node* tail = nullptr;
-    bt_node* unused = nullptr;
-
-    if (array_size < key_size) {
-        head = new bt_node();
-        head->start = array_size;
-        head->end = key_size - 1;
-        head->next = nullptr;
-
-        tail = head;
-    }
-
-    for (uint32_t i = array_size; i < key_size; i++) {
-        uint32_t mid = avl_choose_root(head->start, head->end);
-
-        tkey& key = key_vec[mid];
-        size_t pack_size = key.get_pack_size();
-
-        key.write_data_to_buf(key_data + key_offset);
-        key_addr_arr[i] = key_offset;
-        key_offset += pack_size;
-
-        if (key.type == NUM) {
-            printf("write num key %f\n", key.num);
-        } else {
-            printf("write str key %s\n", key.str);
-        }
-
-        if (mid > head->start) {
-            bt_node* left = get_or_create_free_node(&unused);
-            left->start = head->start;
-            left->end = mid - 1;
-            left->next = nullptr;
-
-            tail->next = left;
-            tail = left;
-        }
-
-        if (mid < head->end) {
-            bt_node* right = get_or_create_free_node(&unused);
-            right->start = mid + 1;
-            right->end = head->end;
-            right->next = nullptr;
-
-            tail->next = right;
-            tail = right;
-        }
-
-        bt_node* next_head = head->next;
-
-        if (unused) {
-            head->next = unused;
-            unused = head;
-        } else {
-            unused = head;
-            head->next = nullptr;
-        }
-
-        head = next_head;
-    }
-
-    while(unused) {
-        bt_node* node = unused;
-        unused = unused->next;
-
-        free(node);
-    }
-
-    write_data(of, array_size);
-    write_data(of, key_buf, buf_size);
-    free(key_buf);
 }
 
 unsigned int get_arr_size(std::vector<tkey>& key_vec) {
@@ -488,13 +349,9 @@ unsigned int pack_hash_part(std::ofstream& of, LuaTableInfo& table, TKeyInfo& ke
         uint32_t mid = avl_choose_root(head->start, head->end);
 #ifdef DEBUG
         printf("i = %u, start, end = %u, %u, mid = %u, head_start, head_end = %u, %u\n", i, start, end, mid, head->start, head->end);
-#endif
-
-        tkey& key = key_vec[mid];
-
-#ifdef DEBUG
         printf("write key_addr %d, pack_size %u\n", i, pack_size);
 #endif
+        tkey& key = key_vec[mid];
 
         key_addr[i] = pack_size;
         pack_size += pack_key(of, key);
@@ -541,17 +398,6 @@ unsigned int pack_hash_part(std::ofstream& of, LuaTableInfo& table, TKeyInfo& ke
 
         free(node);
     }
-
-
-    /* for (unsigned int i = start; i < end; i++) { */
-    /*     auto& key = key_vec[i]; */
-
-    /*     key_addr[i] = pack_size; */
-    /*     pack_size += pack_key(of, key); */
-
-    /*     val_addr[i] = pack_size; */
-    /*     pack_size += pack_value(table.L, table.index, of, key); */
-    /* } */
 
     unsigned int inc_size = pack_size - base_size;
     return inc_size;
