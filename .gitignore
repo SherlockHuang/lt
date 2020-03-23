@@ -1,5 +1,7 @@
 *.o
 main
+decode
+decode.exe
 *.exe
 /.vscode/
 main.exe.stackdump
