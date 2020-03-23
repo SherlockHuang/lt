@@ -17,6 +17,10 @@ extern "C" {
 #include <string.h>
 }
 
+#ifdef SILENT
+#define printf(fmt, ...) (0)
+#endif
+
 unsigned int pack_table(lua_State* L, int t, std::ofstream& of);
 
 void print_hex(const char* buf, size_t size) {

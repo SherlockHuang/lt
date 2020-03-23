@@ -9,6 +9,10 @@ extern "C" {
 #include <memory.h>
 }
 
+#ifdef SILENT
+#define printf(fmt, ...) (0)
+#endif
+
 enum key_type {
     NUM,
     STR,
@@ -169,6 +173,7 @@ void decode_file(const char* path) {
     std::ifstream inf(path, std::ios::binary | std::ios::ate);
     std::streamsize size = inf.tellg();
     inf.seekg(0, std::ios::beg);
+
     printf("all size = %ld\n", size);
 
     char* buf = new char[size]();
