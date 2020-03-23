@@ -115,7 +115,7 @@ struct tkey {
 
     ~tkey() {
         if (type == STR) {
-            free(str);
+            delete[] str;
         }
     }
 
@@ -475,6 +475,9 @@ unsigned int pack_table(lua_State* L, int t, std::ofstream& of) {
     write_data(of, val_addr, key_size);
 
     of.seekp(end_pos);
+
+    delete[] key_addr;
+    delete[] val_addr;
 
     return pack_size;
 }

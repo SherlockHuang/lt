@@ -1,5 +1,6 @@
 #include <fstream>
 #include <cassert>
+#include "decode.h"
 
 extern "C" {
 #include <lua.h>
@@ -13,11 +14,6 @@ enum key_type {
     STR,
     TABLE,
 };
-
-void decode_value(const char* buf);
-void decode_table(const char* buf);
-void decode_num(const char* buf);
-void decode_str(const char* buf);
 
 template<typename T>
 const void* read_value(T* dst, const void* src) {
@@ -136,10 +132,12 @@ void decode_str(const char* buf) {
     // memcpy((void*) &size, (void*)(buf + 1), sizeof(uint16_t));
     const void* ptr = read_value(&size, buf + 1);
 
-    char* str = new char[size]();
-    read_value(str, ptr, size);
+    /* char* str = new char[size](); */
+    /* read_value(str, ptr, size); */
 
-    printf("decode %s\n", str);
+    printf("decode %s\n", ptr);
+
+    /* delete[] str; */
 }
 
 void decode_table(const char* buf) {
@@ -180,9 +178,43 @@ void decode_file(const char* path) {
     /* decode_keys(buf); */
     decode_value(buf);
 
-    delete[](buf);
+    delete[] buf;
 }
 
+const char* create_from_file(const char* path) {
+    std::ifstream inf(path, std::ios::binary | std::ios::ate);
+    std::streamsize size = inf.tellg();
+    inf.seekg(0, std::ios::beg);
+
+    printf("all size = %ld\n", size);
+
+    char* buf = (char*) malloc(size);
+    inf.read(buf, size);
+    inf.close();
+
+    decode_value(buf);
+
+    return buf;
+}
+
+void create_from_file_as_userdata(const char* path, lua_State* L) {
+    std::ifstream inf(path, std::ios::binary | std::ios::ate);
+    std::streamsize size = inf.tellg();
+    inf.seekg(0, std::ios::beg);
+
+    printf("all size = %ld\n", size);
+
+    char* buf = (char*) lua_newuserdata(L, size);
+
+    printf("create  size: %zu\n", size);
+
+    inf.read(buf, size);
+    inf.close();
+
+    decode_value(buf);
+}
+
+#ifdef RUN
 int main(int argc, const char** argv)
 {
     if (argc < 2) {
@@ -194,3 +226,4 @@ int main(int argc, const char** argv)
 
     return 0;
 }
+#endif

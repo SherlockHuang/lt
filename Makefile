@@ -4,6 +4,7 @@ ifeq ($(UNAME), Darwin)
     CC = clang++
 	MAIN = main
 	DECO = decode
+	DECO_SO = plt.so
 else ifeq ($(findstring CYGWIN, $(UNAME)), CYGWIN)
     CC = g++
 	MAIN = main.exe
@@ -28,14 +29,20 @@ run: $(MAIN)
 $(MAIN): $(SRC_O)
 	$(CC) -o $@ $^ $(CFLAGS) $(LIB_DIR) $(LD_FLAGS) 
 
-deco: $(DECO)
+deco: $(DECO_SO)
+
+deco_run: CFLAGS += -DRUN
+deco_run: $(DECO)
 	./$(DECO) output.pl
 
 $(DECO): $(DECO_SRC_O)
 	$(CC) -o $@ $^ $(CFLAGS) $(LIB_DIR) $(LD_FLAGS) 
 
+$(DECO_SO): $(DECO_SRC_O) lua_decode.o
+	$(CC) $(INLDUE_DIR) -undefined dynamic_lookup --shared -o $@ $^
+
 %.o: %.cpp
 	$(CC) -c $< $(CFLAGS) $(INLDUE_DIR) -o $@
 
 clean:
-	rm -rf $(SRC_O)
+	rm -rf *.o
