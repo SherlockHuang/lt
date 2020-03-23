@@ -134,10 +134,10 @@ void decode_num(const char* buf) {
 void decode_str(const char* buf) {
     uint16_t size;
     // memcpy((void*) &size, (void*)(buf + 1), sizeof(uint16_t));
-    read_value(&size, buf + 1);
+    const void* ptr = read_value(&size, buf + 1);
 
     char* str = new char[size]();
-    read_value(str, buf, size);
+    read_value(str, ptr, size);
 
     printf("decode %s\n", str);
 }

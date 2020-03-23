@@ -164,7 +164,10 @@ struct tkey {
             pack_size += write_data(of, num);
         } else {
             printf("write key %s\n", str);
-            pack_size += write_data(of, str, strlen(str) + 1);
+
+            uint16_t size = strlen(str) + 1;
+            pack_size += write_data(of, size);
+            pack_size += write_data(of, str, size);
         }
 
         return pack_size;
@@ -389,8 +392,6 @@ unsigned int pack_value(lua_State* L, int t, std::ofstream& of, tkey& key) {
     if (lua_istable(L, -1)) {
         pack_size += pack_table(L, -1, of);
     } else if(lua_isnumber(L, -1)) {
-        /* uint16_t size = sizeof(lua_Number); */
-        // uint16_t value_info = size | 0x0000;
         char type = (char) NUM;
         lua_Number num = lua_tonumber(L, -1);
 
@@ -416,6 +417,144 @@ unsigned int pack_value(lua_State* L, int t, std::ofstream& of, tkey& key) {
     lua_pop(L, 1);
 
     return pack_size;
+}
+
+struct LuaTableInfo {
+    lua_State* L;
+    int index;
+};
+
+struct TKeyInfo {
+    std::vector<tkey>& vec;
+    unsigned int start;
+    unsigned int end;
+};
+
+struct AddrInfo {
+    unsigned int* key_addr;
+    unsigned int* val_addr;
+};
+
+unsigned int pack_arr_part(std::ofstream& of, LuaTableInfo& table, TKeyInfo& keys, AddrInfo& addr, unsigned int base_size) {
+    unsigned int start = keys.start;
+    unsigned int end = keys.end;
+    std::vector<tkey>& key_vec = keys.vec;
+
+    unsigned int* key_addr = addr.key_addr;
+    unsigned int* val_addr = addr.val_addr;
+    unsigned int pack_size = base_size;
+
+    for (unsigned int i = start; i < end; i++) {
+        auto& key = key_vec[i];
+
+#ifdef DEBUG
+        printf("write key_addr %d, pack_size %u\n", i, pack_size);
+#endif
+
+        key_addr[i] = pack_size;
+        pack_size += pack_key(of, key);
+
+        val_addr[i] = pack_size;
+        pack_size += pack_value(table.L, table.index, of, key);
+    }
+
+    unsigned inc_size = pack_size - base_size;
+    return inc_size;
+}
+
+unsigned int pack_hash_part(std::ofstream& of, LuaTableInfo& table, TKeyInfo& keys, AddrInfo& addr, unsigned int base_size) {
+    unsigned int start = keys.start;
+    unsigned int end = keys.end;
+    std::vector<tkey>& key_vec = keys.vec;
+
+    unsigned int* key_addr = addr.key_addr;
+    unsigned int* val_addr = addr.val_addr;
+    unsigned int pack_size = base_size;
+
+    bt_node* head = nullptr;
+    bt_node* tail = nullptr;
+    bt_node* unused = nullptr;
+
+    if (start < end) {
+        head = new bt_node();
+        head->start = start;
+        head->end = end - 1;
+        head->next = nullptr;
+
+        tail = head;
+    }
+
+    for (uint32_t i = start; i < end; i++) {
+        uint32_t mid = avl_choose_root(head->start, head->end);
+#ifdef DEBUG
+        printf("i = %u, start, end = %u, %u, mid = %u, head_start, head_end = %u, %u\n", i, start, end, mid, head->start, head->end);
+#endif
+
+        tkey& key = key_vec[mid];
+
+#ifdef DEBUG
+        printf("write key_addr %d, pack_size %u\n", i, pack_size);
+#endif
+
+        key_addr[i] = pack_size;
+        pack_size += pack_key(of, key);
+
+        val_addr[i] = pack_size;
+        pack_size += pack_value(table.L, table.index, of, key);
+
+        if (mid > head->start) {
+            bt_node* left = get_or_create_free_node(&unused);
+            left->start = head->start;
+            left->end = mid - 1;
+            left->next = nullptr;
+
+            tail->next = left;
+            tail = left;
+        }
+
+        if (mid < head->end) {
+            bt_node* right = get_or_create_free_node(&unused);
+            right->start = mid + 1;
+            right->end = head->end;
+            right->next = nullptr;
+
+            tail->next = right;
+            tail = right;
+        }
+
+        bt_node* next_head = head->next;
+
+        if (unused) {
+            head->next = unused;
+            unused = head;
+        } else {
+            unused = head;
+            head->next = nullptr;
+        }
+
+        head = next_head;
+    }
+
+    while(unused) {
+        bt_node* node = unused;
+        unused = unused->next;
+
+        free(node);
+    }
+
+
+    /* for (unsigned int i = start; i < end; i++) { */
+    /*     auto& key = key_vec[i]; */
+
+    /*     key_addr[i] = pack_size; */
+    /*     pack_size += pack_key(of, key); */
+
+    /*     val_addr[i] = pack_size; */
+    /*     pack_size += pack_value(table.L, table.index, of, key); */
+    /* } */
+
+    unsigned int inc_size = pack_size - base_size;
+    return inc_size;
 }
 
 unsigned int pack_table(lua_State* L, int t, std::ofstream& of) {
@@ -471,15 +610,15 @@ unsigned int pack_table(lua_State* L, int t, std::ofstream& of) {
     auto va_pos = of.tellp();
     pack_size += write_data(of, val_addr, key_size);
 
-    for (unsigned int i = 0; i < key_size; i++) {
-        auto& key = key_vec[i];
+    LuaTableInfo table = { L, t };
+    TKeyInfo keys = { key_vec, 0, arr_size};
+    AddrInfo addr = { key_addr, val_addr };
 
-        key_addr[i] = pack_size;
-        pack_size += pack_key(of, key);
+    pack_size += pack_arr_part(of, table, keys, addr, pack_size);
 
-        val_addr[i] = pack_size;
-        pack_size += pack_value(L, t, of, key);
-    }
+    keys.start = arr_size;
+    keys.end = key_vec.size();
+    pack_size += pack_hash_part(of, table, keys, addr, pack_size);
 
     auto end_pos = of.tellp();
 
