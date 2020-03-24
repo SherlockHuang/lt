@@ -13,31 +13,6 @@ extern "C" {
 #define printf(fmt, ...) (0)
 #endif
 
-enum key_type {
-    NUM,
-    STR,
-    TABLE,
-};
-
-template<typename T>
-const void* read_value(T* dst, const void* src) {
-    size_t size = sizeof(T);
-    memcpy(dst, src, size);
-    return (char*)src + size;
-}
-
-template<typename T>
-const void* read_value(T* dst, const void* src, size_t size) {
-    size = sizeof(T) * size;
-    memcpy(dst, src, size);
-    return (char*)src + size;
-}
-
-inline
-const void* addr_offset(const void* root, size_t offset) {
-    return (char*)root + offset;
-}
-
 void decode_key(const char* buf) {
     printf("[key] ");
     char type = buf[0];
