@@ -27,7 +27,22 @@ int compare_num(const char* buf, double num) {
     return -1;
 }
 
-bool avl_search(const char* plt, uint32_t* key_addr, uint32_t arr_size, uint32_t key_size, double key, uint32_t* index) {
+int compare_str(const char* buf, const char* str) {
+    char t = buf[0];
+    if (t == NUM) {
+        return -1;
+    } else if (t == STR) {
+        uint16_t size;
+        const char* buf_value = (const char*) read_value(&size, buf + 1);
+        int ret = strncmp(str, buf_value, size);
+        return ret;
+    }
+
+    printf("Error key type %d\n", t);
+    assert(false);
+}
+
+bool avl_search_num(const char* plt, uint32_t* key_addr, uint32_t arr_size, uint32_t key_size, double key, uint32_t* index) {
     if (key_size < arr_size) {
         return false;
     }
@@ -37,6 +52,28 @@ bool avl_search(const char* plt, uint32_t* key_addr, uint32_t arr_size, uint32_t
         uint32_t key_offset = key_addr[arr_size + cur - 1];
         const char* key_buf = (const char*) addr_offset(plt, key_offset);
         int ret = compare_num(key_buf, key);
+        if (ret == 0) {
+            *index = cur;
+            return true;
+        } else if (ret > 0) {
+            cur = cur * 2 + 1;
+        } else {
+            cur = cur * 2;
+        }
+    }
+    return false;
+}
+
+bool avl_search_str(const char* plt, uint32_t* key_addr, uint32_t arr_size, uint32_t key_size, const char* key, uint32_t* index) {
+    if (key_size < arr_size) {
+        return false;
+    }
+    
+    uint32_t cur = 1;
+    while(arr_size + cur <= key_size) {
+        uint32_t key_offset = key_addr[arr_size + cur - 1];
+        const char* key_buf = (const char*) addr_offset(plt, key_offset);
+        int ret = compare_str(key_buf, key);
         if (ret == 0) {
             *index = cur;
             return true;
@@ -90,11 +127,8 @@ void search_num(char* plt, double key, lua_State* L) {
 
     if (key_size == 0) {
         lua_pushnil(L);
-        printf("index key %f, value nil\n", key);
         return;
     }
-
-    printf("key_size = %u, arr_size = %u\n", key_size, arr_size);
 
     uint32_t* key_addr = (uint32_t*) ptr;
     uint32_t* val_addr = (uint32_t*) addr_offset(key_addr, sizeof(uint32_t) * key_size);
@@ -103,13 +137,12 @@ void search_num(char* plt, double key, lua_State* L) {
     if (key_int == key && key_int > 0 && key_int <= arr_size) {
         uint32_t val_offset = val_addr[key_int - 1];
         const char* val_buf = (const char*) addr_offset(plt, val_offset);
-        printf("arr key\n");
         read_value_to_stack(val_buf, L);
         return;
     }
 
     uint32_t index;
-    bool ok = avl_search(plt, key_addr, arr_size, key_size, key, &index);
+    bool ok = avl_search_num(plt, key_addr, arr_size, key_size, key, &index);
     if (!ok) {
         lua_pushnil(L);
         return;
@@ -120,8 +153,32 @@ void search_num(char* plt, double key, lua_State* L) {
     read_value_to_stack(val_buf, L);
 }
 
-void search_str(char* plt, const char* str, lua_State* L) {
-    lua_pushnil(L);
+void search_str(char* plt, const char* key, lua_State* L) {
+    const void* ptr = plt + 1;
+
+    uint32_t key_size, arr_size;
+    ptr = read_value(&key_size, ptr);
+    ptr = read_value(&arr_size, ptr);
+
+    if (key_size == 0) {
+        lua_pushnil(L);
+        return;
+    }
+
+    uint32_t* key_addr = (uint32_t*) ptr;
+    uint32_t* val_addr = (uint32_t*) addr_offset(key_addr, sizeof(uint32_t) * key_size);
+
+    uint32_t index;
+    bool ok = avl_search_str(plt, key_addr, arr_size, key_size, key, &index);
+    if (!ok) {
+        lua_pushnil(L);
+        return;
+    }
+
+    uint32_t val_offset = val_addr[index];
+    const char* val_buf = (const char*) addr_offset(plt, val_offset);
+    read_value_to_stack(val_buf, L);
+
 }
 
 int plt_index(lua_State* L) {
@@ -165,9 +222,7 @@ static int _create_plt(lua_State* L) {
     return 1;
 }
 
-#ifdef __cplusplus
 extern "C"
-#endif
 int luaopen_plt_c(lua_State* L) {
     luaL_checkversion(L);
     luaL_Reg l[] = {
