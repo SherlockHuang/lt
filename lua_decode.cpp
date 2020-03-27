@@ -181,7 +181,8 @@ void search_str(char* plt, const char* key, lua_State* L) {
 }
 
 int plt_index(lua_State* L) {
-    char* plt = (char*) luaL_checkudata(L, 1, PLT_NAME);
+    /* char* plt = (char*) luaL_checkudata(L, 1, PLT_NAME); */
+    char* plt = (char*) lua_touserdata(L, 1);
 
     int lt = lua_type(L, 2);
 
@@ -206,7 +207,6 @@ int next_num(char* plt, lua_Number key, lua_State* L) {
     ptr = read_value(&arr_size, ptr);
 
     if (key_size == 0) {
-        lua_pushnil(L);
         return 0;
     }
 
@@ -222,7 +222,7 @@ int next_num(char* plt, lua_Number key, lua_State* L) {
             found = true;
             index = key_int + 1;
             lua_pushinteger(L, index);
-        } else if (key_int == arr_size) {
+        } else if (key_int == arr_size && key_int < key_size) {
             found = true;
             index = arr_size;
             uint32_t key_offset = key_addr[index];
@@ -296,7 +296,9 @@ int next_str(char* plt, const char* key, lua_State* L) {
 }
 
 int plt_next(lua_State* L) {
-    char* plt = (char*) luaL_checkudata(L, 1, PLT_NAME);
+    /* char* plt = (char*) luaL_checkudata(L, 1, PLT_NAME); */
+    char* plt = (char*) lua_touserdata(L, 1);
+
     int lt = lua_type(L, 2);
 
     if (lt == LUA_TNIL) {
