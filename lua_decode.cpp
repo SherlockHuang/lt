@@ -7,7 +7,7 @@ extern "C" {
 #include <lauxlib.h>
 }
 
-#define PLT_NAME "PLT"
+#define PLT_NAME "plt"
 
 void set_plt_metatable(lua_State* L);
 
@@ -48,17 +48,17 @@ bool avl_search_num(const char* plt, uint32_t* key_addr, uint32_t arr_size, uint
     }
     
     uint32_t cur = 1;
-    while(arr_size + cur <= key_size + 1) {
-        uint32_t key_offset = key_addr[arr_size + cur - 1];
+    while(arr_size + cur <= key_size) {
+        *index = arr_size + cur - 1;
+        uint32_t key_offset = key_addr[*index];
         const char* key_buf = (const char*) addr_offset(plt, key_offset);
         int ret = compare_num(key_buf, key);
         if (ret == 0) {
-            *index = arr_size + cur - 1;
             return true;
         } else if (ret > 0) {
-            cur = cur * 2 + 1;
-        } else {
             cur = cur * 2;
+        } else {
+            cur = cur * 2 + 1;
         }
     }
     return false;
@@ -215,19 +215,22 @@ int next_num(char* plt, lua_Number key, lua_State* L) {
 
     uint32_t key_int = (uint32_t) key;
     if (key_int == key) {
+        bool found = false;
         uint32_t index = 0;
 
         if (key_int >= 0 && key_int < arr_size) {
+            found = true;
             index = key_int + 1;
             lua_pushinteger(L, index);
         } else if (key_int == arr_size) {
+            found = true;
             index = arr_size;
             uint32_t key_offset = key_addr[index];
             const char* key_buf = (const char*) addr_offset(plt, key_offset);
             read_value_to_stack(key_buf, L);
         }
 
-        if (index > 0) {
+        if (found) {
             uint32_t val_offset = val_addr[key_int];
             const char* val_buf = (const char*) addr_offset(plt, val_offset);
             read_value_to_stack(val_buf, L);
@@ -237,6 +240,7 @@ int next_num(char* plt, lua_Number key, lua_State* L) {
 
     uint32_t index;
     bool ok = avl_search_num(plt, key_addr, arr_size, key_size, key, &index);
+
     if (!ok) {
         return 0;
     }
