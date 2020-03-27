@@ -30,6 +30,7 @@ $(MAIN): $(SRC_O)
 	$(CC) -o $@ $^ $(CFLAGS) $(LIB_DIR) $(LD_FLAGS) 
 
 deco: $(DECO_SO)
+	lua test_plt.lua
 
 deco_run: CFLAGS += -DRUN
 deco_run: $(DECO)
