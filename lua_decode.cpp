@@ -53,7 +53,7 @@ bool avl_search_num(const char* plt, uint32_t* key_addr, uint32_t arr_size, uint
         const char* key_buf = (const char*) addr_offset(plt, key_offset);
         int ret = compare_num(key_buf, key);
         if (ret == 0) {
-            *index = cur;
+            *index = arr_size + cur - 1;
             return true;
         } else if (ret > 0) {
             cur = cur * 2 + 1;
@@ -75,7 +75,7 @@ bool avl_search_str(const char* plt, uint32_t* key_addr, uint32_t arr_size, uint
         const char* key_buf = (const char*) addr_offset(plt, key_offset);
         int ret = compare_str(key_buf, key);
         if (ret == 0) {
-            *index = cur;
+            *index = arr_size + cur - 1;
             return true;
         } else if (ret > 0) {
             cur = cur * 2 + 1;
@@ -189,9 +189,11 @@ int plt_index(lua_State* L) {
     if (lt == LUA_TNUMBER) {
         lua_Number num = lua_tonumber(L, 2);
         search_num(plt, num, L);
-    } else if(lt == LUA_TSTRING) {
+    } else if (lt == LUA_TSTRING) {
         const char* str = lua_tostring(L, 2);
         search_str(plt, str, L);
+    } else {
+        return 0;
     }
 
     return 1;
