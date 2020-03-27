@@ -148,6 +148,14 @@ struct tkey {
 
         return pack_size;
     }
+
+    void print() {
+        if (type == NUM) {
+            printf("print key %f\n", num);
+        } else {
+            printf("print key %s\n", str);
+        }
+    }
 };
 
 bool sort_tkey(tkey& k1, tkey& k2) {
@@ -253,10 +261,11 @@ unsigned int pack_value(lua_State* L, int t, std::ofstream& of, tkey& key) {
     put_value_on_top(L, t, key);
 
     unsigned int pack_size = 0;
+    int lt = lua_type(L, -1);
 
-    if (lua_istable(L, -1)) {
+    if (lt == LUA_TTABLE) {
         pack_size += pack_table(L, -1, of);
-    } else if(lua_isnumber(L, -1)) {
+    } else if(LUA_TNUMBER) {
         char type = (char) NUM;
         lua_Number num = lua_tonumber(L, -1);
 
@@ -264,7 +273,7 @@ unsigned int pack_value(lua_State* L, int t, std::ofstream& of, tkey& key) {
         
         pack_size += write_data(of, type);
         pack_size += write_data(of, num);
-    } else if(lua_isstring(L, -1)) {
+    } else if(LUA_TSTRING) {
         char type = (char) STR;
         const char* str = lua_tostring(L, -1);
         uint16_t size = strlen(str) + 1;
@@ -275,6 +284,7 @@ unsigned int pack_value(lua_State* L, int t, std::ofstream& of, tkey& key) {
         pack_size += write_data(of, size);
         pack_size += write_data(of, str, size);
     } else {
+        key.print();
         printf("Unsupport value type %s\n", lua_typename(L, lua_type(L, -1)));
         assert(false);
     }
@@ -414,11 +424,12 @@ unsigned int pack_table(lua_State* L, int t, std::ofstream& of) {
     lua_pushnil(L);
     while (lua_next(L, t - 1) != 0)
     {
-        if (lua_isnumber(L, -2)) {
+        int lt = lua_type(L, -2);
+        if (lt == LUA_TNUMBER) {
             lua_Number num = lua_tonumber(L, -2);
             key_vec.emplace_back(num);
 
-        } else if (lua_isstring(L, -2)) {
+        } else if (lt == LUA_TSTRING) {
             size_t len;
             const char* str = luaL_tolstring(L, -2, &len);
             key_vec.emplace_back(str, len);
