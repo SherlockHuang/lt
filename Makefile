@@ -5,10 +5,20 @@ ifeq ($(UNAME), Darwin)
 	MAIN = main
 	DECO = decode
 	DECO_SO = plt.so
+	SO_FLAGS = -undefined dynamic_lookup --shared 
 else ifeq ($(findstring CYGWIN, $(UNAME)), CYGWIN)
     CC = g++
 	MAIN = main.exe
 	DECO = decode.exe
+	DECO_SO = plt.dll
+	SO_FLAGS = -shared
+else ifeq ($(UNAME), Linux)
+	CC = g++
+	MAIN = main
+	DECO = decode
+	DECO_SO = plt.so
+	SO_FLAGS = -shared -fPIC
+	SO_CLANGS = -fPIC
 endif
 
 INLDUE_DIR = -I/usr/local/include
@@ -40,10 +50,10 @@ $(DECO): $(DECO_SRC_O)
 	$(CC) -o $@ $^ $(CFLAGS) $(LIB_DIR) $(LD_FLAGS) 
 
 $(DECO_SO): $(DECO_SRC_O) lua_decode.o
-	$(CC) $(INLDUE_DIR) -undefined dynamic_lookup --shared -o $@ $^
+	$(CC) $(INLDUE_DIR) $(SO_FLAGS) -o $@ $^
 
 %.o: %.cpp
-	$(CC) -c $< $(CFLAGS) $(INLDUE_DIR) -o $@
+	$(CC) -c $< $(CFLAGS) $(SO_CLANGS) $(INLDUE_DIR) -o $@
 
 clean:
 	rm -rf *.o
