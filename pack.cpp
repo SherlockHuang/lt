@@ -448,6 +448,14 @@ unsigned int pack_table(lua_State* L, int t, std::ofstream& of) {
     std::sort(key_vec.begin(), key_vec.end(), sort_tkey);
     assert(key_vec.size() <= (size_t) (0xffffffff));
 
+#ifdef DEBUG
+    printf("---------- sorted keys ----------\n");
+    for (auto& key : key_vec) {
+        key.print();
+    }
+    printf("---------- sorted keys end ----------\n");
+#endif
+
     unsigned int pack_size = 0;
 
     char type = (char) TABLE;

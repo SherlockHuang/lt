@@ -19,22 +19,22 @@ int compare_num(const char* buf, double num) {
 
         if (buf_value == num) {
             return 0;
-        } else if (buf_value > num) {
-            return 1;
+        } else if (buf_value < num) {
+            return -1;
         }
     }
 
-    return -1;
+    return 1;
 }
 
 int compare_str(const char* buf, const char* str) {
     char t = buf[0];
     if (t == NUM) {
-        return -1;
+        return 1;
     } else if (t == STR) {
         uint16_t size;
         const char* buf_value = (const char*) read_value(&size, buf + 1);
-        int ret = strncmp(str, buf_value, size);
+        int ret = strcmp(str, buf_value);
         return ret;
     }
 
@@ -46,7 +46,7 @@ bool avl_search_num(const char* plt, uint32_t* key_addr, uint32_t arr_size, uint
     if (key_size < arr_size) {
         return false;
     }
-    
+
     uint32_t cur = 1;
     while(arr_size + cur <= key_size) {
         *index = arr_size + cur - 1;
