@@ -7,9 +7,9 @@ extern "C" {
 #include <lauxlib.h>
 }
 
-#define PLT_NAME "plt"
+#define LT_NAME "lt"
 
-void set_plt_metatable(lua_State* L);
+void set_lt_metatable(lua_State* L);
 
 int compare_num(const char* buf, double num) {
     char t = buf[0];
@@ -42,7 +42,7 @@ int compare_str(const char* buf, const char* str) {
     assert(false);
 }
 
-bool avl_search_num(const char* plt, uint32_t* key_addr, uint32_t arr_size, uint32_t key_size, double key, uint32_t* index) {
+bool avl_search_num(const char* lt, uint32_t* key_addr, uint32_t arr_size, uint32_t key_size, double key, uint32_t* index) {
     if (key_size < arr_size) {
         return false;
     }
@@ -51,7 +51,7 @@ bool avl_search_num(const char* plt, uint32_t* key_addr, uint32_t arr_size, uint
     while(arr_size + cur <= key_size) {
         *index = arr_size + cur - 1;
         uint32_t key_offset = key_addr[*index];
-        const char* key_buf = (const char*) addr_offset(plt, key_offset);
+        const char* key_buf = (const char*) addr_offset(lt, key_offset);
         int ret = compare_num(key_buf, key);
         if (ret == 0) {
             return true;
@@ -64,7 +64,7 @@ bool avl_search_num(const char* plt, uint32_t* key_addr, uint32_t arr_size, uint
     return false;
 }
 
-bool avl_search_str(const char* plt, uint32_t* key_addr, uint32_t arr_size, uint32_t key_size, const char* key, uint32_t* index) {
+bool avl_search_str(const char* lt, uint32_t* key_addr, uint32_t arr_size, uint32_t key_size, const char* key, uint32_t* index) {
     if (key_size < arr_size) {
         return false;
     }
@@ -72,7 +72,7 @@ bool avl_search_str(const char* plt, uint32_t* key_addr, uint32_t arr_size, uint
     uint32_t cur = 1;
     while(arr_size + cur <= key_size) {
         uint32_t key_offset = key_addr[arr_size + cur - 1];
-        const char* key_buf = (const char*) addr_offset(plt, key_offset);
+        const char* key_buf = (const char*) addr_offset(lt, key_offset);
         int ret = compare_str(key_buf, key);
         if (ret == 0) {
             *index = arr_size + cur - 1;
@@ -88,7 +88,7 @@ bool avl_search_str(const char* plt, uint32_t* key_addr, uint32_t arr_size, uint
 
 void read_table_to_stack(const char* buf, lua_State* L) {
     lua_pushlightuserdata(L, (void*) buf);
-    set_plt_metatable(L);
+    set_lt_metatable(L);
 }
 
 void read_num_to_stack(const char* buf, lua_State* L) {
@@ -118,8 +118,8 @@ void read_value_to_stack(const char* buf, lua_State* L) {
     }
 }
 
-int search_num(char* plt, double key, lua_State* L) {
-    const void* ptr = plt + 1;
+int search_num(char* lt, double key, lua_State* L) {
+    const void* ptr = lt + 1;
 
     uint32_t key_size, arr_size;
     ptr = read_value(&key_size, ptr);
@@ -137,26 +137,26 @@ int search_num(char* plt, double key, lua_State* L) {
         key_int -= 1;
         if (key_int >= 0 && key_int < arr_size) {
             uint32_t val_offset = val_addr[key_int];
-            const char* val_buf = (const char*) addr_offset(plt, val_offset);
+            const char* val_buf = (const char*) addr_offset(lt, val_offset);
             read_value_to_stack(val_buf, L);
             return 1;
         }
     }
 
     uint32_t index;
-    bool ok = avl_search_num(plt, key_addr, arr_size, key_size, key, &index);
+    bool ok = avl_search_num(lt, key_addr, arr_size, key_size, key, &index);
     if (!ok) {
         return 0;
     }
 
     uint32_t val_offset = val_addr[index];
-    const char* val_buf = (const char*) addr_offset(plt, val_offset);
+    const char* val_buf = (const char*) addr_offset(lt, val_offset);
     read_value_to_stack(val_buf, L);
     return 1;
 }
 
-int search_str(char* plt, const char* key, lua_State* L) {
-    const void* ptr = plt + 1;
+int search_str(char* lt, const char* key, lua_State* L) {
+    const void* ptr = lt + 1;
 
     uint32_t key_size, arr_size;
     ptr = read_value(&key_size, ptr);
@@ -170,35 +170,35 @@ int search_str(char* plt, const char* key, lua_State* L) {
     uint32_t* val_addr = (uint32_t*) addr_offset(key_addr, sizeof(uint32_t) * key_size);
 
     uint32_t index;
-    bool ok = avl_search_str(plt, key_addr, arr_size, key_size, key, &index);
+    bool ok = avl_search_str(lt, key_addr, arr_size, key_size, key, &index);
     if (!ok) {
         return 0;
     }
 
     uint32_t val_offset = val_addr[index];
-    const char* val_buf = (const char*) addr_offset(plt, val_offset);
+    const char* val_buf = (const char*) addr_offset(lt, val_offset);
     read_value_to_stack(val_buf, L);
     return 1;
 }
 
-int plt_index(lua_State* L) {
-    char* plt = (char*) lua_touserdata(L, 1);
+int lt_index(lua_State* L) {
+    char* lt = (char*) lua_touserdata(L, 1);
 
-    int lt = lua_type(L, 2);
+    int type = lua_type(L, 2);
 
-    if (lt == LUA_TNUMBER) {
+    if (type == LUA_TNUMBER) {
         lua_Number num = lua_tonumber(L, 2);
-        return search_num(plt, num, L);
-    } else if (lt == LUA_TSTRING) {
+        return search_num(lt, num, L);
+    } else if (type == LUA_TSTRING) {
         const char* str = lua_tostring(L, 2);
-        return search_str(plt, str, L);
+        return search_str(lt, str, L);
     } else {
         return 0;
     }
 }
 
-int next_num(char* plt, lua_Number key, lua_State* L) {
-    const void* ptr = plt + 1;
+int next_num(char* lt, lua_Number key, lua_State* L) {
+    const void* ptr = lt + 1;
 
     uint32_t key_size, arr_size;
     ptr = read_value(&key_size, ptr);
@@ -224,20 +224,20 @@ int next_num(char* plt, lua_Number key, lua_State* L) {
             found = true;
             index = arr_size;
             uint32_t key_offset = key_addr[index];
-            const char* key_buf = (const char*) addr_offset(plt, key_offset);
+            const char* key_buf = (const char*) addr_offset(lt, key_offset);
             read_value_to_stack(key_buf, L);
         }
 
         if (found) {
             uint32_t val_offset = val_addr[key_int];
-            const char* val_buf = (const char*) addr_offset(plt, val_offset);
+            const char* val_buf = (const char*) addr_offset(lt, val_offset);
             read_value_to_stack(val_buf, L);
             return 2;
         }
     }
 
     uint32_t index;
-    bool ok = avl_search_num(plt, key_addr, arr_size, key_size, key, &index);
+    bool ok = avl_search_num(lt, key_addr, arr_size, key_size, key, &index);
 
     if (!ok) {
         return 0;
@@ -245,11 +245,11 @@ int next_num(char* plt, lua_Number key, lua_State* L) {
 
     if (++index < key_size) {
         uint32_t key_offset = key_addr[index];
-        const char* key_buf = (const char*) addr_offset(plt, key_offset);
+        const char* key_buf = (const char*) addr_offset(lt, key_offset);
         read_value_to_stack(key_buf, L);
 
         uint32_t val_offset = val_addr[index];
-        const char* val_buf = (const char*) addr_offset(plt, val_offset);
+        const char* val_buf = (const char*) addr_offset(lt, val_offset);
         read_value_to_stack(val_buf, L);
 
         return 2;
@@ -258,8 +258,8 @@ int next_num(char* plt, lua_Number key, lua_State* L) {
     return 0;
 }
 
-int next_str(char* plt, const char* key, lua_State* L) {
-    const void* ptr = plt + 1;
+int next_str(char* lt, const char* key, lua_State* L) {
+    const void* ptr = lt + 1;
 
     uint32_t key_size, arr_size;
     ptr = read_value(&key_size, ptr);
@@ -273,18 +273,18 @@ int next_str(char* plt, const char* key, lua_State* L) {
     uint32_t* val_addr = (uint32_t*) addr_offset(key_addr, sizeof(uint32_t) * key_size);
 
     uint32_t index;
-    bool ok = avl_search_str(plt, key_addr, arr_size, key_size, key, &index);
+    bool ok = avl_search_str(lt, key_addr, arr_size, key_size, key, &index);
     if (!ok) {
         return 0;
     }
 
     if (++index < key_size) {
         uint32_t key_offset = key_addr[index];
-        const char* key_buf = (const char*) addr_offset(plt, key_offset);
+        const char* key_buf = (const char*) addr_offset(lt, key_offset);
         read_value_to_stack(key_buf, L);
 
         uint32_t val_offset = val_addr[index];
-        const char* val_buf = (const char*) addr_offset(plt, val_offset);
+        const char* val_buf = (const char*) addr_offset(lt, val_offset);
         read_value_to_stack(val_buf, L);
 
         return 2;
@@ -293,27 +293,27 @@ int next_str(char* plt, const char* key, lua_State* L) {
     return 0;
 }
 
-int plt_next(lua_State* L) {
-    /* char* plt = (char*) luaL_checkudata(L, 1, PLT_NAME); */
-    char* plt = (char*) lua_touserdata(L, 1);
+int lt_next(lua_State* L) {
+    /* char* lt = (char*) luaL_checkudata(L, 1, LT_NAME); */
+    char* lt = (char*) lua_touserdata(L, 1);
 
-    int lt = lua_type(L, 2);
+    int type = lua_type(L, 2);
 
-    if (lt == LUA_TNIL) {
-        return next_num(plt, 0, L);
-    } else if (lt == LUA_TNUMBER) {
+    if (type == LUA_TNIL) {
+        return next_num(lt, 0, L);
+    } else if (type == LUA_TNUMBER) {
         lua_Number num = lua_tonumber(L, 2);
-        return next_num(plt, num, L);
-    } else if (lt == LUA_TSTRING) {
+        return next_num(lt, num, L);
+    } else if (type == LUA_TSTRING) {
         const char* str = lua_tostring(L, 2);
-        return next_str(plt, str, L);
+        return next_str(lt, str, L);
     }
 
     return 0;
 }
 
-int iter_num(char* plt, lua_Number key, lua_State* L) {
-    const void* ptr = plt + 1;
+int iter_num(char* lt, lua_Number key, lua_State* L) {
+    const void* ptr = lt + 1;
 
     uint32_t key_size, arr_size;
     ptr = read_value(&key_size, ptr);
@@ -332,7 +332,7 @@ int iter_num(char* plt, lua_Number key, lua_State* L) {
         lua_pushinteger(L, key_int + 1);
 
         uint32_t val_offset = val_addr[key_int];
-        const char* val_buf = (const char*) addr_offset(plt, val_offset);
+        const char* val_buf = (const char*) addr_offset(lt, val_offset);
         read_value_to_stack(val_buf, L);
         return 2;
     }
@@ -341,58 +341,58 @@ int iter_num(char* plt, lua_Number key, lua_State* L) {
 }
 
 
-int plt_ipairs(lua_State* L) {
-    char* plt = (char*) lua_touserdata(L, 1);
+int lt_ipairs(lua_State* L) {
+    char* lt = (char*) lua_touserdata(L, 1);
 
-    int lt = lua_type(L, 2);
+    int type = lua_type(L, 2);
 
-    if (lt == LUA_TNIL) {
-        return iter_num(plt, 0, L);
+    if (type == LUA_TNIL) {
+        return iter_num(lt, 0, L);
     }
-    else if (lt == LUA_TNUMBER) {
+    else if (type == LUA_TNUMBER) {
         lua_Number num = lua_tonumber(L, 2);
-        return iter_num(plt, num, L);
+        return iter_num(lt, num, L);
     }
 
     return 0;
 }
 
-int plt_pairs(lua_State* L) {
-    lua_pushcfunction(L, plt_next);
+int lt_pairs(lua_State* L) {
+    lua_pushcfunction(L, lt_next);
     lua_pushvalue(L, 1);
     lua_pushnil(L);
 
     return 3;
 }
 
-void set_plt_metatable(lua_State* L) {
-    int ret = luaL_newmetatable(L, PLT_NAME);
+void set_lt_metatable(lua_State* L) {
+    int ret = luaL_newmetatable(L, LT_NAME);
     if (ret) {
         luaL_Reg l[] = {
-            { "__index", plt_index },
-            { "__pairs", plt_pairs },
+            { "__index", lt_index },
+            { "__pairs", lt_pairs },
             { NULL, NULL },
         };
         luaL_setfuncs(L, l, 0);
     }
     lua_pop(L, 1);
-    luaL_setmetatable(L, PLT_NAME);
+    luaL_setmetatable(L, LT_NAME);
 }
 
-static int _create_plt(lua_State* L) {
+static int _create_lt(lua_State* L) {
     const char* path = luaL_checkstring(L, 1);
     if (!path) {
         return 0;
     }
 
     create_from_file_as_userdata(path, L);
-    set_plt_metatable(L);
+    set_lt_metatable(L);
 
     return 1;
 }
 
-int iter_num_pairs(char* plt, lua_Number key, lua_State* L) {
-    const void* ptr = plt + 1;
+int iter_num_pairs(char* lt, lua_Number key, lua_State* L) {
+    const void* ptr = lt + 1;
 
     uint32_t key_size, arr_size;
     ptr = read_value(&key_size, ptr);
@@ -411,11 +411,11 @@ int iter_num_pairs(char* plt, lua_Number key, lua_State* L) {
         lua_pushinteger(L, key_int + 1);
 
         uint32_t key_offset = key_addr[key_int];
-        const char* key_buf = (const char*) addr_offset(plt, key_offset);
+        const char* key_buf = (const char*) addr_offset(lt, key_offset);
         read_value_to_stack(key_buf, L);
 
         uint32_t val_offset = val_addr[key_int];
-        const char* val_buf = (const char*) addr_offset(plt, val_offset);
+        const char* val_buf = (const char*) addr_offset(lt, val_offset);
         read_value_to_stack(val_buf, L);
 
         return 3;
@@ -424,24 +424,24 @@ int iter_num_pairs(char* plt, lua_Number key, lua_State* L) {
     return 0;
 }
 
-int plt_n_ipairs(lua_State* L) {
-    char* plt = (char*) lua_touserdata(L, 1);
+int lt_n_ipairs(lua_State* L) {
+    char* lt = (char*) lua_touserdata(L, 1);
 
-    int lt = lua_type(L, 2);
+    int t = lua_type(L, 2);
 
-    if (lt == LUA_TNIL) {
-        return iter_num_pairs(plt, 0, L);
+    if (t == LUA_TNIL) {
+        return iter_num_pairs(lt, 0, L);
     }
-    else if (lt == LUA_TNUMBER) {
+    else if (t == LUA_TNUMBER) {
         lua_Number num = lua_tonumber(L, 2);
-        return iter_num_pairs(plt, num, L);
+        return iter_num_pairs(lt, num, L);
     }
 
     return 0;
 }
 
 static int _ipairs(lua_State* L) {
-    lua_pushcfunction(L, plt_ipairs);
+    lua_pushcfunction(L, lt_ipairs);
     lua_pushvalue(L, 1);
     lua_pushnil(L);
 
@@ -449,7 +449,7 @@ static int _ipairs(lua_State* L) {
 }
 
 static int _pairs(lua_State* L) {
-    lua_pushcfunction(L, plt_n_ipairs);
+    lua_pushcfunction(L, lt_n_ipairs);
     lua_pushvalue(L, 1);
     lua_pushnil(L);
 
@@ -457,10 +457,10 @@ static int _pairs(lua_State* L) {
 }
 
 extern "C"
-int luaopen_plt_c(lua_State* L) {
+int luaopen_lt_c(lua_State* L) {
     luaL_checkversion(L);
     luaL_Reg l[] = {
-        { "create_plt", _create_plt },
+        { "create_lt", _create_lt },
         { "ipairs", _ipairs },
         { "pairs", _pairs },
         { NULL, NULL },

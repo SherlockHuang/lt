@@ -4,19 +4,19 @@ ifeq ($(UNAME), Darwin)
     CC = clang++
 	MAIN = main
 	DECO = decode
-	DECO_SO = plt.so
+	DECO_SO = lt.so
 	SO_FLAGS = -undefined dynamic_lookup --shared 
 else ifeq ($(findstring CYGWIN, $(UNAME)), CYGWIN)
     CC = g++
 	MAIN = main.exe
 	DECO = decode.exe
-	DECO_SO = plt.dll
+	DECO_SO = lt.dll
 	SO_FLAGS = -shared
 else ifeq ($(UNAME), Linux)
 	CC = g++
 	MAIN = main
 	DECO = decode
-	DECO_SO = plt.so
+	DECO_SO = lt.so
 	SO_FLAGS = -shared -fPIC
 	SO_CLANGS = -fPIC
 endif
@@ -40,7 +40,7 @@ $(MAIN): $(SRC_O)
 	$(CC) -o $@ $^ $(CFLAGS) $(LIB_DIR) $(LD_FLAGS) 
 
 deco: $(DECO_SO)
-	lua test_plt.lua
+	lua test_lt.lua
 
 deco_run: CFLAGS += -DRUN
 deco_run: $(DECO)

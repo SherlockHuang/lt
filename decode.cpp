@@ -115,7 +115,9 @@ const char* create_from_file(const char* path) {
     inf.read(buf, size);
     inf.close();
 
+#ifdef DEBUG
     decode_value(buf);
+#endif
 
     return buf;
 }
@@ -129,12 +131,14 @@ void create_from_file_as_userdata(const char* path, lua_State* L) {
 
     char* buf = (char*) lua_newuserdata(L, size);
 
-    printf("create plt: %p\n", buf);
+    printf("create lt: %p\n", buf);
 
     inf.read(buf, size);
     inf.close();
 
+#ifdef DEBUG
     decode_value(buf);
+#endif
 }
 
 #ifdef RUN
