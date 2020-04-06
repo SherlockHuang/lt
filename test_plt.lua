@@ -49,25 +49,22 @@ print('---------- pairs  ----------')
 tv = 0
 t = os.clock()
 for k, v in pairs(pt) do
-    -- print('k, v = ', k, v)
     tv = tv + v
 end
 print(sf('pairs plt table cost %f, tv = %s', os.clock() -t, tv))
 
--- local function pk(t, k)
---     print(k, t[k])
--- end
--- pk(pt, 11.0)
--- pk(pt, 13.0)
--- pk(pt, 15.0)
--- pk(pt, 17.0)
--- pk(pt, 19.0)
+print('---------- pairs  ----------')
+tv = 0
+t = os.clock()
+for _, k, v in p.pairs(pt) do
+    tv = tv + v
+end
+print(sf('pairs plt.pairs table cost %f, tv = %s', os.clock() -t, tv))
 
 print('---------- pairs  ----------')
 tv = 0
 t = os.clock()
 for k, v in pairs(lt) do
-    -- print('k, v = ', k, v)
     tv = tv + v
 end
 print(sf('pairs raw table cost %f, tv = %s', os.clock() -t, tv))
