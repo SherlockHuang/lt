@@ -9,3 +9,5 @@ main.exe.stackdump
 *.pl
 log
 *.so
+*.cpp.*
+*.c.*
